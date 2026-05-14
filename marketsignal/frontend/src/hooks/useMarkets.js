@@ -3,7 +3,7 @@ import { fetchMarkets, fetchHealth } from '../api/client'
 
 const REFRESH_INTERVAL = 60000 // 60 seconds
 
-export function useMarkets(filters) {
+export function useMarkets() {
   const [markets, setMarkets] = useState([])
   const [health, setHealth] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -18,7 +18,7 @@ export function useMarkets(filters) {
     setError(null)
     try {
       const [data, healthData] = await Promise.all([
-        fetchMarkets(filters),
+        fetchMarkets({ limit: 500 }),
         fetchHealth().catch(() => null),
       ])
       setMarkets(data)
@@ -30,16 +30,14 @@ export function useMarkets(filters) {
     } finally {
       setLoading(false)
     }
-  }, [JSON.stringify(filters)])
+  }, [])
 
   useEffect(() => {
     load()
     timerRef.current = setInterval(() => load(true), REFRESH_INTERVAL)
-
     countdownRef.current = setInterval(() => {
       setCountdown(c => (c <= 1 ? REFRESH_INTERVAL / 1000 : c - 1))
     }, 1000)
-
     return () => {
       clearInterval(timerRef.current)
       clearInterval(countdownRef.current)

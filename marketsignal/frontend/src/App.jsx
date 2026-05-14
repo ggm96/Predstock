@@ -53,17 +53,30 @@ function sortMarkets(markets, sort) {
   return copy
 }
 
+function applyFilters(markets, filters) {
+  let out = markets
+  if (filters.source) out = out.filter(m => m.market.source === filters.source)
+  if (filters.category) out = out.filter(m => m.market.category === filters.category)
+  if (filters.minProbability != null) out = out.filter(m => m.market.probability >= filters.minProbability)
+  if (filters.maxProbability != null) out = out.filter(m => m.market.probability <= filters.maxProbability)
+  if (filters.search) {
+    const q = filters.search.toLowerCase()
+    out = out.filter(m => m.market.title.toLowerCase().includes(q) || m.market.question.toLowerCase().includes(q))
+  }
+  return out
+}
+
 export default function App() {
   const [filters, setFilters] = useState({})
-  const { markets, health, loading, error, countdown, lastRefresh, refresh } = useMarkets(filters)
+  const { markets, health, loading, error, countdown, lastRefresh, refresh } = useMarkets()
 
   const sortedMarkets = useMemo(
-    () => sortMarkets(markets, filters.sort),
-    [markets, filters.sort]
+    () => sortMarkets(applyFilters(markets, filters), filters.sort),
+    [markets, filters]
   )
 
   const sourceStatuses = health?.sources ?? {}
-  const totalMarkets = markets.length
+  const totalMarkets = sortedMarkets.length
 
   const formatTime = (d) => {
     if (!d) return '—'

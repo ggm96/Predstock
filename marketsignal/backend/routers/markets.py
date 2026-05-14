@@ -38,14 +38,14 @@ async def _fetch_source(name: str, fn) -> list[PredictionMarket]:
 
 def _is_active(m: PredictionMarket) -> bool:
     if not m.close_date:
-        return False  # no close date = unknown/stale market, exclude it
+        return True  # trust the source API's own open/closed filter
     try:
         dt = datetime.fromisoformat(m.close_date.replace("Z", "+00:00"))
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
         return dt > datetime.now(timezone.utc)
     except Exception:
-        return False
+        return True
 
 
 async def _apply_claude_enrichment(

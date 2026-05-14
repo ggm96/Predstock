@@ -57,15 +57,17 @@ async def fetch_markets() -> list[PredictionMarket]:
                     elif isinstance(t, dict):
                         tags.append(t.get("name", ""))
 
+            description = q.get("description", title)
+            question_text = description[:500] if description else title
             q_id = str(q.get("id", title[:40]))
-            tickers = map_market_to_tickers(title, title, tags)
-            category = categorise_market(title, tags)
+            tickers = map_market_to_tickers(title, question_text, tags)
+            category = categorise_market(title, tags, question_text)
 
             result.append(PredictionMarket(
                 id=f"metaculus-{q_id}",
                 source="metaculus",
                 title=title,
-                question=q.get("description", title)[:500] if q.get("description") else title,
+                question=question_text,
                 probability=probability,
                 volume_usd=volume_usd,
                 close_date=close_time,

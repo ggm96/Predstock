@@ -78,8 +78,8 @@ def map_market_to_tickers(title: str, question: str, tags: list[str]) -> list[st
     return found if found else ["SPY"]
 
 
-def categorise_market(title: str, tags: list[str]) -> str:
-    combined = " ".join([title, " ".join(tags)]).lower()
+def categorise_market(title: str, tags: list[str], question: str = "") -> str:
+    combined = " ".join([title, question, " ".join(tags)]).lower()
     for category, keywords in CATEGORY_KEYWORDS.items():
         for kw in keywords:
             if kw in combined:

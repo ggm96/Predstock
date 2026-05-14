@@ -5,6 +5,7 @@ from fastapi import APIRouter, Query
 from models import MarketWithInstruments, PredictionMarket
 from services import kalshi, polymarket, manifold, metaculus
 from services.prices import fetch_instruments
+from services import claude_mapper
 
 router = APIRouter()
 
@@ -45,6 +46,21 @@ async def _load_all_markets() -> list[MarketWithInstruments]:
     all_markets: list[PredictionMarket] = []
     for batch in all_raw:
         all_markets.extend(batch)
+
+    # Enrich with Claude classification where API key is available
+    claude_results = await claude_mapper.classify_markets(all_markets)
+    if claude_results:
+        enriched: list[PredictionMarket] = []
+        for market in all_markets:
+            override = claude_results.get(market.id)
+            if override:
+                data = market.dict() if hasattr(market, "dict") else market.model_dump()
+                data["category"] = override["category"]
+                if override["tickers"]:
+                    data["related_tickers"] = override["tickers"]
+                market = PredictionMarket(**data)
+            enriched.append(market)
+        all_markets = enriched
 
     # Fetch price data for all unique tickers
     all_tickers = list({t for m in all_markets for t in m.related_tickers})

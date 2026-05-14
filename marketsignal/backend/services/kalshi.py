@@ -42,15 +42,16 @@ async def fetch_markets() -> list[PredictionMarket]:
             if m.get("tags"):
                 tags = [str(t) for t in m["tags"]]
 
-            tickers = map_market_to_tickers(title, title, tags)
+            question = m.get("subtitle", title)
+            tickers = map_market_to_tickers(title, question, tags)
             if category == "other":
-                category = categorise_market(title, tags)
+                category = categorise_market(title, tags, question)
 
             result.append(PredictionMarket(
                 id=f"kalshi-{ticker}",
                 source="kalshi",
                 title=title,
-                question=m.get("subtitle", title),
+                question=question,
                 probability=probability,
                 volume_usd=volume_usd,
                 close_date=close_time,

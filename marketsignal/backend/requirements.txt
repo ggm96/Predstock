@@ -4,3 +4,4 @@ httpx
 yfinance
 pydantic
 python-dotenv
+anthropic

@@ -51,7 +51,7 @@ async def fetch_markets() -> list[PredictionMarket]:
 
             market_id = str(m.get("condition_id", m.get("id", question[:40])))
             tickers = map_market_to_tickers(question, question, tags)
-            category = categorise_market(question, tags)
+            category = categorise_market(question, tags, question)
 
             result.append(PredictionMarket(
                 id=f"poly-{market_id}",

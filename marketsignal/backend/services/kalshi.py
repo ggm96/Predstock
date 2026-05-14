@@ -13,6 +13,7 @@ CATEGORY_MAP = {
     "RATES": "rates",
 }
 
+
 MAX_MARKETS = 2000
 
 
@@ -56,7 +57,12 @@ async def fetch_markets() -> list[PredictionMarket]:
             if m.get("tags"):
                 tags = [str(t) for t in m["tags"]]
 
-            question = m.get("subtitle", title)
+            subtitle = m.get("subtitle", "") or ""
+            # Multi-outcome markets pack all options into subtitle — use title instead
+            if subtitle.lower().startswith("yes ") or subtitle.count(",") >= 2:
+                question = title
+            else:
+                question = subtitle or title
             tickers = map_market_to_tickers(title, question, tags)
             if category == "other":
                 category = categorise_market(title, tags, question)

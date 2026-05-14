@@ -38,14 +38,14 @@ async def _fetch_source(name: str, fn) -> list[PredictionMarket]:
 
 def _is_active(m: PredictionMarket) -> bool:
     if not m.close_date:
-        return False  # no close date = unknown/stale market, exclude it
+        return True  # trust the source API's own open/closed filter
     try:
         dt = datetime.fromisoformat(m.close_date.replace("Z", "+00:00"))
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
         return dt > datetime.now(timezone.utc)
     except Exception:
-        return False
+        return True
 
 
 async def _apply_claude_enrichment(
@@ -77,7 +77,6 @@ async def _apply_claude_enrichment(
             if override:
                 tickers = override.get("tickers") or []
                 cat = override.get("category", "other")
-                # No tickers → sports/other market regardless of what Claude said
                 if not tickers:
                     cat = "other"
                 data = mwi.market.dict() if hasattr(mwi.market, "dict") else mwi.market.model_dump()
@@ -90,7 +89,6 @@ async def _apply_claude_enrichment(
             else:
                 enriched.append(mwi)
 
-        # Update cache in place (preserve original timestamp so TTL is unchanged)
         _markets_cache = (enriched, _markets_cache[1])
         return enriched
     except Exception:
@@ -108,7 +106,6 @@ async def _load_all_markets() -> list[MarketWithInstruments]:
     all_markets: list[PredictionMarket] = [m for batch in all_raw for m in batch]
     all_markets = [m for m in all_markets if _is_active(m)]
 
-    # Fast keyword-based price fetch — return this immediately
     all_tickers = list({t for m in all_markets for t in m.related_tickers})
     instruments_map = {i.ticker: i for i in await fetch_instruments(all_tickers)}
 
@@ -120,7 +117,6 @@ async def _load_all_markets() -> list[MarketWithInstruments]:
         for m in all_markets
     ]
 
-    # Claude enrichment runs in the background — updates cache when done
     asyncio.create_task(_apply_claude_enrichment(result, all_markets))
 
     return result

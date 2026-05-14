@@ -1,5 +1,6 @@
 import asyncio
 import time
+from datetime import datetime, timezone
 from typing import Optional
 from fastapi import APIRouter, Query
 from models import MarketWithInstruments, PredictionMarket
@@ -35,6 +36,67 @@ async def _fetch_source(name: str, fn) -> list[PredictionMarket]:
         return []
 
 
+def _is_active(m: PredictionMarket) -> bool:
+    if not m.close_date:
+        return False  # no close date = unknown/stale market, exclude it
+    try:
+        dt = datetime.fromisoformat(m.close_date.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt > datetime.now(timezone.utc)
+    except Exception:
+        return False
+
+
+async def _apply_claude_enrichment(
+    cached: list[MarketWithInstruments],
+    raw_markets: list[PredictionMarket],
+) -> list[MarketWithInstruments]:
+    """Classify with Claude and return enriched list. Runs as background task."""
+    global _markets_cache
+    try:
+        claude_results = await claude_mapper.classify_markets(raw_markets)
+        if not claude_results or not _markets_cache:
+            return cached
+
+        # Collect any new tickers Claude found
+        new_tickers = {
+            t
+            for r in claude_results.values()
+            for t in r.get("tickers", [])
+        }
+        existing_tickers = {i.ticker for mwi in cached for i in mwi.instruments}
+        missing = list(new_tickers - existing_tickers)
+        extra_instruments = {i.ticker: i for i in await fetch_instruments(missing)}
+        all_instruments = {i.ticker: i for mwi in cached for i in mwi.instruments}
+        all_instruments.update(extra_instruments)
+
+        enriched: list[MarketWithInstruments] = []
+        for mwi in cached:
+            override = claude_results.get(mwi.market.id)
+            if override:
+                tickers = override.get("tickers") or []
+                cat = override.get("category", "other")
+                # No tickers → sports/other market regardless of what Claude said
+                if not tickers:
+                    cat = "other"
+                data = mwi.market.dict() if hasattr(mwi.market, "dict") else mwi.market.model_dump()
+                data["category"] = cat
+                data["related_tickers"] = tickers
+                data["ticker_rationales"] = override.get("ticker_rationales") or {}
+                market = PredictionMarket(**data)
+                instruments = [all_instruments[t] for t in tickers if t in all_instruments]
+                enriched.append(MarketWithInstruments(market=market, instruments=instruments))
+            else:
+                enriched.append(mwi)
+
+        # Update cache in place (preserve original timestamp so TTL is unchanged)
+        _markets_cache = (enriched, _markets_cache[1])
+        return enriched
+    except Exception:
+        return cached
+
+
 async def _load_all_markets() -> list[MarketWithInstruments]:
     all_raw = await asyncio.gather(
         _fetch_source("kalshi", kalshi.fetch_markets),
@@ -43,49 +105,23 @@ async def _load_all_markets() -> list[MarketWithInstruments]:
         _fetch_source("metaculus", metaculus.fetch_markets),
     )
 
-    all_markets: list[PredictionMarket] = []
-    for batch in all_raw:
-        all_markets.extend(batch)
-
-    # Drop markets whose close date has already passed
-    from datetime import datetime, timezone
-    now = datetime.now(timezone.utc)
-    def _is_active(m: PredictionMarket) -> bool:
-        if not m.close_date:
-            return True
-        try:
-            dt = datetime.fromisoformat(m.close_date.replace("Z", "+00:00"))
-            if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
-            return dt > now
-        except Exception:
-            return True
+    all_markets: list[PredictionMarket] = [m for batch in all_raw for m in batch]
     all_markets = [m for m in all_markets if _is_active(m)]
 
-    # Enrich with Claude classification where API key is available
-    claude_results = await claude_mapper.classify_markets(all_markets)
-    if claude_results:
-        enriched: list[PredictionMarket] = []
-        for market in all_markets:
-            override = claude_results.get(market.id)
-            if override:
-                data = market.dict() if hasattr(market, "dict") else market.model_dump()
-                data["category"] = override["category"]
-                if override["tickers"]:
-                    data["related_tickers"] = override["tickers"]
-                data["ticker_rationales"] = override.get("ticker_rationales") or {}
-                market = PredictionMarket(**data)
-            enriched.append(market)
-        all_markets = enriched
-
-    # Fetch price data for all unique tickers
+    # Fast keyword-based price fetch — return this immediately
     all_tickers = list({t for m in all_markets for t in m.related_tickers})
     instruments_map = {i.ticker: i for i in await fetch_instruments(all_tickers)}
 
-    result: list[MarketWithInstruments] = []
-    for market in all_markets:
-        instruments = [instruments_map[t] for t in market.related_tickers if t in instruments_map]
-        result.append(MarketWithInstruments(market=market, instruments=instruments))
+    result: list[MarketWithInstruments] = [
+        MarketWithInstruments(
+            market=m,
+            instruments=[instruments_map[t] for t in m.related_tickers if t in instruments_map],
+        )
+        for m in all_markets
+    ]
+
+    # Claude enrichment runs in the background — updates cache when done
+    asyncio.create_task(_apply_claude_enrichment(result, all_markets))
 
     return result
 
@@ -107,7 +143,7 @@ async def list_markets(
     min_probability: Optional[float] = Query(None, ge=0, le=1),
     max_probability: Optional[float] = Query(None, ge=0, le=1),
     search: Optional[str] = Query(None),
-    limit: int = Query(50, ge=1, le=500),
+    limit: int = Query(500, ge=1, le=500),
 ):
     markets = await get_all_markets()
 

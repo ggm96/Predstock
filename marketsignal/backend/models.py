@@ -15,6 +15,7 @@ class PredictionMarket(BaseModel):
     related_tickers: list[str] = []
     tags: list[str] = []
     rationale: Optional[str] = None
+    ticker_rationales: Optional[dict] = None
 
 
 class FinancialInstrument(BaseModel):

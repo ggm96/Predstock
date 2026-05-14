@@ -41,6 +41,7 @@ function relativeTime(dateStr) {
 
 export default function MarketCard({ market, instruments, index }) {
   const [expanded, setExpanded] = useState(false)
+  const [selectedTicker, setSelectedTicker] = useState(null)
   const sourceColor = SOURCE_COLORS[market.source] || '#8b949e'
   const categoryColor = CATEGORY_COLORS[market.category] || '#8b949e'
   const closeLabel = relativeTime(market.close_date)
@@ -92,18 +93,28 @@ export default function MarketCard({ market, instruments, index }) {
         {closeLabel && <span>{closeLabel}</span>}
       </div>
 
-      {/* Ticker chips + rationale */}
+      {/* Ticker chips + per-ticker rationale */}
       {instruments.length > 0 && (
-        <div className="mt-3">
+        <div className="mt-3" onClick={e => e.stopPropagation()}>
           <div className="flex flex-wrap gap-1.5">
             {instruments.map(inst => (
-              <PriceSparkline key={inst.ticker} instrument={inst} />
+              <PriceSparkline
+                key={inst.ticker}
+                instrument={inst}
+                active={selectedTicker === inst.ticker}
+                onClick={() => setSelectedTicker(t => t === inst.ticker ? null : inst.ticker)}
+              />
             ))}
           </div>
-          {market.rationale && (
-            <p className="text-text-muted text-xs mt-2 leading-relaxed font-sans italic">
-              {market.rationale}
-            </p>
+          {selectedTicker && market.ticker_rationales?.[selectedTicker] && (
+            <div className="mt-2 px-2 py-1.5 rounded bg-surface border border-border">
+              <span className="font-mono text-xs font-semibold" style={{ color: '#58a6ff' }}>
+                {selectedTicker}
+              </span>
+              <p className="text-text-muted text-xs mt-0.5 leading-relaxed font-sans">
+                {market.ticker_rationales[selectedTicker]}
+              </p>
+            </div>
           )}
         </div>
       )}

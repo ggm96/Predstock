@@ -11,7 +11,7 @@ SYSTEM_PROMPT = """You are a financial markets classifier. Given prediction mark
 For each market output:
 - category: one of macro, equities, crypto, politics, commodities, rates, other
 - tickers: up to 4 relevant Yahoo Finance tickers (e.g. SPY, AAPL, BTC-USD, GLD, TLT, QQQ)
-- rationale: one sentence (max 20 words) explaining why this market outcome would move those instruments
+- rationale: object mapping each ticker to a one-sentence explanation (max 20 words) of why that instrument is affected by this market's outcome
 
 Category rules:
 - macro: Fed, interest rates, inflation, CPI, GDP, recession, jobs, tariffs, trade
@@ -20,13 +20,14 @@ Category rules:
 - politics: elections, presidents, congress, geopolitics, wars
 - commodities: oil, gold, silver, gas, agricultural products
 - rates: Treasury yields, bond markets, Fed funds rate
+- other: sports, entertainment, science, anything without a clear financial link — use empty tickers []
 
 Respond ONLY with a JSON array, one object per market, in input order.
-Format: [{"id": "...", "category": "...", "tickers": ["..."], "rationale": "..."}]"""
+Format: [{"id": "...", "category": "...", "tickers": ["..."], "rationale": {"TICKER": "reason"}}]"""
 
 
 async def classify_markets(markets: list) -> dict[str, dict]:
-    """Classify markets using Claude. Returns {market_id: {category, tickers, rationale}}."""
+    """Classify markets using Claude. Returns {market_id: {category, tickers, rationale, ticker_rationales}}."""
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
         return {}
@@ -86,8 +87,22 @@ async def classify_markets(markets: list) -> dict[str, dict]:
                     cat = "other"
                 raw_tickers = item.get("tickers", [])
                 tickers = [str(t).upper() for t in raw_tickers if t][:4] if isinstance(raw_tickers, list) else []
-                rationale = item.get("rationale") or None
-                _cache[market_id] = {"category": cat, "tickers": tickers, "rationale": rationale}
+
+                # Per-ticker rationale dict
+                raw_rationale = item.get("rationale", {})
+                ticker_rationales = {}
+                if isinstance(raw_rationale, dict):
+                    ticker_rationales = {str(k).upper(): str(v) for k, v in raw_rationale.items() if v}
+                elif isinstance(raw_rationale, str):
+                    # Claude returned a string instead of dict — apply to all tickers
+                    for t in tickers:
+                        ticker_rationales[t] = raw_rationale
+
+                _cache[market_id] = {
+                    "category": cat,
+                    "tickers": tickers,
+                    "ticker_rationales": ticker_rationales,
+                }
         except Exception:
             pass
 

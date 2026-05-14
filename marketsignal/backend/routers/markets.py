@@ -58,6 +58,7 @@ async def _load_all_markets() -> list[MarketWithInstruments]:
                 data["category"] = override["category"]
                 if override["tickers"]:
                     data["related_tickers"] = override["tickers"]
+                data["rationale"] = override.get("rationale")
                 market = PredictionMarket(**data)
             enriched.append(market)
         all_markets = enriched

@@ -1,9 +1,7 @@
 import React from 'react'
 
-// Minimal sparkline placeholder — full chart data would need historical OHLCV
-// Shows the ticker chip with price and change
 export default function PriceSparkline({ instrument }) {
-  const { ticker, price, change_pct, currency } = instrument
+  const { ticker, name, price, change_pct, currency } = instrument
   const isPositive = change_pct >= 0
 
   const formatPrice = (p) => {
@@ -12,18 +10,29 @@ export default function PriceSparkline({ instrument }) {
     return p.toFixed(4)
   }
 
+  const shortName = name && name !== ticker
+    ? (name.length > 22 ? name.slice(0, 20) + '…' : name)
+    : null
+
   return (
-    <div className="flex items-center gap-1.5 bg-surface rounded px-2 py-1 border border-border hover:border-text-muted transition-colors cursor-default">
-      <span className="font-mono text-xs font-semibold text-text-primary">{ticker}</span>
-      <span className="font-mono text-xs text-text-muted">
-        {currency === 'USD' ? '$' : ''}{formatPrice(price)}
-      </span>
-      <span
-        className="font-mono text-xs font-medium"
-        style={{ color: isPositive ? '#39d353' : '#f85149' }}
-      >
-        {isPositive ? '+' : ''}{change_pct.toFixed(2)}%
-      </span>
+    <div className="flex flex-col bg-surface rounded px-2 py-1.5 border border-border hover:border-text-muted transition-colors cursor-default min-w-0">
+      <div className="flex items-center gap-1.5">
+        <span className="font-mono text-xs font-semibold text-text-primary">{ticker}</span>
+        <span className="font-mono text-xs text-text-muted">
+          {currency === 'USD' ? '$' : ''}{formatPrice(price)}
+        </span>
+        <span
+          className="font-mono text-xs font-medium"
+          style={{ color: isPositive ? '#39d353' : '#f85149' }}
+        >
+          {isPositive ? '+' : ''}{change_pct.toFixed(2)}%
+        </span>
+      </div>
+      {shortName && (
+        <span className="text-text-muted font-sans mt-0.5" style={{ fontSize: '10px' }}>
+          {shortName}
+        </span>
+      )}
     </div>
   )
 }

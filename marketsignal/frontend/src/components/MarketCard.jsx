@@ -92,12 +92,19 @@ export default function MarketCard({ market, instruments, index }) {
         {closeLabel && <span>{closeLabel}</span>}
       </div>
 
-      {/* Ticker chips */}
+      {/* Ticker chips + rationale */}
       {instruments.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mt-3">
-          {instruments.map(inst => (
-            <PriceSparkline key={inst.ticker} instrument={inst} />
-          ))}
+        <div className="mt-3">
+          <div className="flex flex-wrap gap-1.5">
+            {instruments.map(inst => (
+              <PriceSparkline key={inst.ticker} instrument={inst} />
+            ))}
+          </div>
+          {market.rationale && (
+            <p className="text-text-muted text-xs mt-2 leading-relaxed font-sans italic">
+              {market.rationale}
+            </p>
+          )}
         </div>
       )}
 

@@ -14,6 +14,7 @@ class PredictionMarket(BaseModel):
     category: str  # "macro"|"equities"|"crypto"|"politics"|"commodities"|"rates"|"other"
     related_tickers: list[str] = []
     tags: list[str] = []
+    rationale: Optional[str] = None
 
 
 class FinancialInstrument(BaseModel):

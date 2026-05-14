@@ -11,8 +11,9 @@ SYSTEM_PROMPT = """You are a financial markets classifier. Given prediction mark
 For each market output:
 - category: one of macro, equities, crypto, politics, commodities, rates, other
 - tickers: up to 4 relevant Yahoo Finance tickers (e.g. SPY, AAPL, BTC-USD, GLD, TLT, QQQ)
+- rationale: one sentence (max 20 words) explaining why this market outcome would move those instruments
 
-Rules:
+Category rules:
 - macro: Fed, interest rates, inflation, CPI, GDP, recession, jobs, tariffs, trade
 - equities: specific stocks, S&P, Nasdaq, earnings, IPOs, sectors
 - crypto: Bitcoin, Ethereum, any cryptocurrency or blockchain
@@ -21,11 +22,11 @@ Rules:
 - rates: Treasury yields, bond markets, Fed funds rate
 
 Respond ONLY with a JSON array, one object per market, in input order.
-Format: [{"id": "...", "category": "...", "tickers": ["..."]}]"""
+Format: [{"id": "...", "category": "...", "tickers": ["..."], "rationale": "..."}]"""
 
 
 async def classify_markets(markets: list) -> dict[str, dict]:
-    """Classify markets using Claude. Returns {market_id: {category, tickers}} for classified markets."""
+    """Classify markets using Claude. Returns {market_id: {category, tickers, rationale}}."""
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
         return {}
@@ -52,7 +53,7 @@ async def classify_markets(markets: list) -> dict[str, dict]:
         try:
             resp = await client.messages.create(
                 model="claude-haiku-4-5",
-                max_tokens=1024,
+                max_tokens=2048,
                 system=[
                     {
                         "type": "text",
@@ -85,7 +86,8 @@ async def classify_markets(markets: list) -> dict[str, dict]:
                     cat = "other"
                 raw_tickers = item.get("tickers", [])
                 tickers = [str(t).upper() for t in raw_tickers if t][:4] if isinstance(raw_tickers, list) else []
-                _cache[market_id] = {"category": cat, "tickers": tickers}
+                rationale = item.get("rationale") or None
+                _cache[market_id] = {"category": cat, "tickers": tickers, "rationale": rationale}
         except Exception:
             pass
 

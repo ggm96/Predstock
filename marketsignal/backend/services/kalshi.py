@@ -13,7 +13,7 @@ CATEGORY_MAP = {
     "RATES": "rates",
 }
 
-MAX_MARKETS = 500
+MAX_MARKETS = 2000
 
 
 async def fetch_markets() -> list[PredictionMarket]:

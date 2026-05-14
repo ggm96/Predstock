@@ -4,15 +4,28 @@ from models import PredictionMarket
 from services.mapper import map_market_to_tickers, categorise_market
 
 BASE_URL = "https://clob.polymarket.com"
+_END_CURSOR = "LTE="  # base64 "-1" — Polymarket's signal for no more pages
 
 
 async def fetch_markets() -> list[PredictionMarket]:
-    async with httpx.AsyncClient(timeout=15) as client:
-        resp = await client.get(f"{BASE_URL}/markets", params={"closed": "false", "limit": 100})
-        resp.raise_for_status()
-        data = resp.json()
+    markets_raw = []
+    cursor = None
 
-    markets_raw = data if isinstance(data, list) else data.get("data", [])
+    async with httpx.AsyncClient(timeout=30) as client:
+        while True:
+            params = {"closed": "false", "limit": 100}
+            if cursor:
+                params["next_cursor"] = cursor
+            resp = await client.get(f"{BASE_URL}/markets", params=params)
+            resp.raise_for_status()
+            data = resp.json()
+            page = data if isinstance(data, list) else data.get("data", [])
+            markets_raw.extend(page)
+            next_cursor = data.get("next_cursor") if isinstance(data, dict) else None
+            if not next_cursor or next_cursor == _END_CURSOR or not page:
+                break
+            cursor = next_cursor
+
     result: list[PredictionMarket] = []
 
     for m in markets_raw:
@@ -21,7 +34,6 @@ async def fetch_markets() -> list[PredictionMarket]:
             if not question:
                 continue
 
-            # outcomePrices is a JSON string like '["0.73", "0.27"]'
             outcome_prices_raw = m.get("outcomePrices", "[]")
             if isinstance(outcome_prices_raw, str):
                 outcome_prices = json.loads(outcome_prices_raw)

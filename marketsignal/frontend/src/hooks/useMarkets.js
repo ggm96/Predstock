@@ -18,7 +18,7 @@ export function useMarkets() {
     setError(null)
     try {
       const [data, healthData] = await Promise.all([
-        fetchMarkets({ limit: 500 }),
+        fetchMarkets({ limit: 5000 }),
         fetchHealth().catch(() => null),
       ])
       setMarkets(data)

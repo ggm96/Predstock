@@ -77,6 +77,7 @@ async def _apply_claude_enrichment(
             if override:
                 tickers = override.get("tickers") or []
                 cat = override.get("category", "other")
+                # No tickers → sports/other market regardless of what Claude said
                 if not tickers:
                     cat = "other"
                 data = mwi.market.dict() if hasattr(mwi.market, "dict") else mwi.market.model_dump()
@@ -89,6 +90,7 @@ async def _apply_claude_enrichment(
             else:
                 enriched.append(mwi)
 
+        # Update cache in place (preserve original timestamp so TTL is unchanged)
         _markets_cache = (enriched, _markets_cache[1])
         return enriched
     except Exception:
@@ -106,6 +108,7 @@ async def _load_all_markets() -> list[MarketWithInstruments]:
     all_markets: list[PredictionMarket] = [m for batch in all_raw for m in batch]
     all_markets = [m for m in all_markets if _is_active(m)]
 
+    # Fast keyword-based price fetch — return this immediately
     all_tickers = list({t for m in all_markets for t in m.related_tickers})
     instruments_map = {i.ticker: i for i in await fetch_instruments(all_tickers)}
 
@@ -117,6 +120,7 @@ async def _load_all_markets() -> list[MarketWithInstruments]:
         for m in all_markets
     ]
 
+    # Claude enrichment runs in the background — updates cache when done
     asyncio.create_task(_apply_claude_enrichment(result, all_markets))
 
     return result
@@ -132,6 +136,9 @@ async def get_all_markets() -> list[MarketWithInstruments]:
     return markets
 
 
+FINANCIAL_CATEGORIES = {"macro", "equities", "crypto", "politics", "commodities", "rates"}
+
+
 @router.get("/markets", response_model=list[MarketWithInstruments])
 async def list_markets(
     source: Optional[str] = Query(None),
@@ -139,9 +146,12 @@ async def list_markets(
     min_probability: Optional[float] = Query(None, ge=0, le=1),
     max_probability: Optional[float] = Query(None, ge=0, le=1),
     search: Optional[str] = Query(None),
-    limit: int = Query(500, ge=1, le=500),
+    limit: int = Query(5000, ge=1, le=5000),
 ):
     markets = await get_all_markets()
+
+    # Always exclude non-financial markets (sports, weather, entertainment, etc.)
+    markets = [m for m in markets if m.market.category in FINANCIAL_CATEGORIES]
 
     if source:
         markets = [m for m in markets if m.market.source == source.lower()]

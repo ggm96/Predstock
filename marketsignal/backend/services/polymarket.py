@@ -54,6 +54,10 @@ async def fetch_markets() -> list[PredictionMarket]:
             volume = m.get("volume")
             volume_usd = float(volume) if volume else None
             end_date = m.get("endDate")
+            if end_date and isinstance(end_date, str):
+                end_date = end_date.replace(" ", "T")
+                if not end_date.endswith("Z") and "+" not in end_date and "-" not in end_date[10:]:
+                    end_date = end_date + "Z"
 
             tags_raw = m.get("tags", [])
             tags: list[str] = []

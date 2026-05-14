@@ -136,6 +136,9 @@ async def get_all_markets() -> list[MarketWithInstruments]:
     return markets
 
 
+FINANCIAL_CATEGORIES = {"macro", "equities", "crypto", "politics", "commodities", "rates"}
+
+
 @router.get("/markets", response_model=list[MarketWithInstruments])
 async def list_markets(
     source: Optional[str] = Query(None),
@@ -143,9 +146,12 @@ async def list_markets(
     min_probability: Optional[float] = Query(None, ge=0, le=1),
     max_probability: Optional[float] = Query(None, ge=0, le=1),
     search: Optional[str] = Query(None),
-    limit: int = Query(500, ge=1, le=500),
+    limit: int = Query(5000, ge=1, le=5000),
 ):
     markets = await get_all_markets()
+
+    # Always exclude non-financial markets (sports, weather, entertainment, etc.)
+    markets = [m for m in markets if m.market.category in FINANCIAL_CATEGORIES]
 
     if source:
         markets = [m for m in markets if m.market.source == source.lower()]

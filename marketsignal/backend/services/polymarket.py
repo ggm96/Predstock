@@ -5,7 +5,7 @@ from services.mapper import map_market_to_tickers, categorise_market
 
 BASE_URL = "https://clob.polymarket.com"
 _END_CURSOR = "LTE="  # base64 "-1" — Polymarket's signal for no more pages
-MAX_MARKETS = 500
+MAX_MARKETS = 2000
 
 
 async def fetch_markets() -> list[PredictionMarket]:

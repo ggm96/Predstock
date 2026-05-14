@@ -8,11 +8,12 @@ BASE_URL = "https://clob.polymarket.com"
 
 async def fetch_markets() -> list[PredictionMarket]:
     async with httpx.AsyncClient(timeout=15) as client:
-        resp = await client.get(f"{BASE_URL}/markets", params={"closed": "false", "limit": 100})
+        resp = await client.get(f"{BASE_URL}/markets", params={"closed": "false", "limit": 50})
         resp.raise_for_status()
         data = resp.json()
 
     markets_raw = data if isinstance(data, list) else data.get("data", [])
+    markets_raw = markets_raw[:50]
     result: list[PredictionMarket] = []
 
     for m in markets_raw:

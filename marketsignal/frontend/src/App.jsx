@@ -147,7 +147,7 @@ export default function App() {
       <main className="max-w-screen-xl mx-auto px-4 py-4">
         {error ? (
           <div className="text-accent-red text-sm font-sans p-4 bg-card border border-border rounded-lg">
-            Failed to load markets: {error}. Make sure the backend is running at localhost:8000.
+            Failed to load markets: {error}. Please try refreshing the page.
           </div>
         ) : (
           <div className="flex gap-4 items-start">

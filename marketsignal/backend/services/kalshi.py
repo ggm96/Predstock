@@ -16,7 +16,7 @@ CATEGORY_MAP = {
 
 async def fetch_markets() -> list[PredictionMarket]:
     async with httpx.AsyncClient(timeout=15) as client:
-        resp = await client.get(f"{BASE_URL}/markets", params={"limit": 100, "status": "open"})
+        resp = await client.get(f"{BASE_URL}/markets", params={"limit": 50, "status": "open"})
         resp.raise_for_status()
         data = resp.json()
 

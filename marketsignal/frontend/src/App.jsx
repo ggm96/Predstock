@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, startTransition } from 'react'
 import { RefreshCw, Activity } from 'lucide-react'
 import { useMarkets } from './hooks/useMarkets'
 import MarketCard from './components/MarketCard'
@@ -72,14 +72,24 @@ function applyFilters(markets, filters) {
   return out
 }
 
+const PAGE_SIZE = 200
+
 export default function App() {
   const [filters, setFilters] = useState({})
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
   const { markets, health, loading, error, countdown, lastRefresh, refresh } = useMarkets()
+
+  const handleFilterChange = (newFilters) => {
+    setVisibleCount(PAGE_SIZE)
+    startTransition(() => setFilters(newFilters))
+  }
 
   const sortedMarkets = useMemo(
     () => sortMarkets(applyFilters(markets, filters), filters.sort),
     [markets, filters]
   )
+
+  const visibleMarkets = sortedMarkets.slice(0, visibleCount)
 
   const sourceStatuses = health?.sources ?? {}
   const totalMarkets = sortedMarkets.length
@@ -145,7 +155,7 @@ export default function App() {
         </div>
 
         {/* Filter bar */}
-        <FilterBar filters={filters} onChange={setFilters} health={health} />
+        <FilterBar filters={filters} onChange={handleFilterChange} health={health} />
       </header>
 
       {/* Main content */}
@@ -167,7 +177,7 @@ export default function App() {
                   <Activity size={40} className="mb-3 opacity-30" />
                   <p className="font-sans text-sm">No markets match the current filters.</p>
                   <button
-                    onClick={() => setFilters({})}
+                    onClick={() => handleFilterChange({})}
                     className="mt-2 text-xs underline hover:text-text-primary transition-colors"
                   >
                     Clear filters
@@ -175,7 +185,7 @@ export default function App() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {sortedMarkets.map((mwi, i) => (
+                  {visibleMarkets.map((mwi, i) => (
                     <MarketCard
                       key={mwi.market.id}
                       market={mwi.market}
@@ -183,6 +193,14 @@ export default function App() {
                       index={i}
                     />
                   ))}
+                  {sortedMarkets.length > visibleCount && (
+                    <button
+                      onClick={() => setVisibleCount(c => c + PAGE_SIZE)}
+                      className="w-full py-2 text-xs font-sans text-text-muted border border-border rounded-lg hover:border-text-muted hover:text-text-primary transition-colors"
+                    >
+                      Show more ({sortedMarkets.length - visibleCount} remaining)
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -195,9 +213,9 @@ export default function App() {
         )}
 
         {/* Mobile instrument panel */}
-        {!loading && sortedMarkets.length > 0 && (
+        {!loading && visibleMarkets.length > 0 && (
           <div className="lg:hidden mt-4">
-            <InstrumentPanel markets={sortedMarkets} />
+            <InstrumentPanel markets={visibleMarkets} />
           </div>
         )}
       </main>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { ExternalLink, ChevronDown, ChevronUp } from 'lucide-react'
+import { ExternalLink, ChevronDown, ChevronUp, Clock } from 'lucide-react'
 import ProbabilityBar from './ProbabilityBar'
 import PriceSparkline from './PriceSparkline'
 
@@ -27,16 +27,19 @@ function formatVolume(v) {
   return `$${v.toFixed(0)}`
 }
 
-function relativeTime(dateStr) {
+function closeInfo(dateStr) {
   if (!dateStr) return null
   const d = new Date(dateStr)
   if (isNaN(d)) return null
   const diff = d - Date.now()
   const days = Math.round(diff / 86400000)
-  if (days < 0) return 'closed'
-  if (days === 0) return 'closes today'
-  if (days === 1) return 'closes tomorrow'
-  return `closes in ${days} days`
+  const hours = Math.round(diff / 3600000)
+  if (diff < 0) return null
+  if (hours < 24) return { label: `closes in ${hours}h`, color: '#f85149' }
+  if (days === 1) return { label: 'closes tomorrow', color: '#f85149' }
+  if (days <= 7) return { label: `closes in ${days}d`, color: '#e3b341' }
+  if (days <= 30) return { label: `closes in ${days}d`, color: '#8b949e' }
+  return { label: `closes in ${days}d`, color: '#57ab5a' }
 }
 
 export default function MarketCard({ market, instruments, index }) {
@@ -44,7 +47,7 @@ export default function MarketCard({ market, instruments, index }) {
   const [selectedTicker, setSelectedTicker] = useState(null)
   const sourceColor = SOURCE_COLORS[market.source] || '#8b949e'
   const categoryColor = CATEGORY_COLORS[market.category] || '#8b949e'
-  const closeLabel = relativeTime(market.close_date)
+  const close = closeInfo(market.close_date)
   const vol = formatVolume(market.volume_usd)
 
   return (
@@ -88,9 +91,14 @@ export default function MarketCard({ market, instruments, index }) {
       <ProbabilityBar probability={market.probability} />
 
       {/* Meta row */}
-      <div className="flex items-center gap-3 mt-2 text-xs text-text-muted font-sans">
-        {vol && <span>{vol} vol</span>}
-        {closeLabel && <span>{closeLabel}</span>}
+      <div className="flex items-center gap-3 mt-2 text-xs font-sans">
+        {vol && <span className="text-text-muted">{vol} vol</span>}
+        {close && (
+          <span className="flex items-center gap-1" style={{ color: close.color }}>
+            <Clock size={10} />
+            {close.label}
+          </span>
+        )}
       </div>
 
       {/* Ticker chips + per-ticker rationale */}

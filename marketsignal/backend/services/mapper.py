@@ -75,7 +75,7 @@ def map_market_to_tickers(title: str, question: str, tags: list[str]) -> list[st
         if len(found) >= 4:
             break
 
-    return found if found else ["SPY"]
+    return found
 
 
 def categorise_market(title: str, tags: list[str], question: str = "") -> str:

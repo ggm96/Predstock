@@ -47,6 +47,21 @@ async def _load_all_markets() -> list[MarketWithInstruments]:
     for batch in all_raw:
         all_markets.extend(batch)
 
+    # Drop markets whose close date has already passed
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
+    def _is_active(m: PredictionMarket) -> bool:
+        if not m.close_date:
+            return True
+        try:
+            dt = datetime.fromisoformat(m.close_date.replace("Z", "+00:00"))
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt > now
+        except Exception:
+            return True
+    all_markets = [m for m in all_markets if _is_active(m)]
+
     # Enrich with Claude classification where API key is available
     claude_results = await claude_mapper.classify_markets(all_markets)
     if claude_results:

@@ -70,7 +70,7 @@ async def classify_markets(markets: list) -> dict[str, dict]:
             )
 
             text = resp.content[0].text if resp.content else ""
-            match = re.search(r"\[.*?\]", text, re.DOTALL)
+            match = re.search(r"\[.*\]", text, re.DOTALL)
             if not match:
                 continue
 

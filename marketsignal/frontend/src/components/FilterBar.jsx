@@ -4,6 +4,15 @@ import { Search, X } from 'lucide-react'
 const SOURCES = ['kalshi', 'polymarket', 'manifold', 'metaculus']
 const CATEGORIES = ['macro', 'equities', 'crypto', 'politics', 'commodities', 'rates']
 
+const CATEGORY_COLORS = {
+  macro: '#f0883e',
+  equities: '#3fb950',
+  crypto: '#a371f7',
+  politics: '#f85149',
+  commodities: '#e3b341',
+  rates: '#58a6ff',
+}
+
 const SOURCE_COLORS = {
   kalshi: '#6e40c9',
   polymarket: '#0052ff',
@@ -91,7 +100,7 @@ export default function FilterBar({ filters, onChange, health }) {
       </div>
 
       {/* Source pills */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1">
+      <div className="flex items-center gap-2 flex-wrap">
         <span className="text-text-muted text-xs font-sans shrink-0">Source</span>
         <Pill
           label="ALL"
@@ -112,7 +121,7 @@ export default function FilterBar({ filters, onChange, health }) {
       </div>
 
       {/* Category pills */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1">
+      <div className="flex items-center gap-2 flex-wrap">
         <span className="text-text-muted text-xs font-sans shrink-0">Category</span>
         <Pill
           label="ALL"
@@ -125,7 +134,7 @@ export default function FilterBar({ filters, onChange, health }) {
             key={c}
             label={c.charAt(0).toUpperCase() + c.slice(1)}
             active={filters.category === c}
-            color="#8b949e"
+            color={CATEGORY_COLORS[c]}
             onClick={() => setCategory(c)}
           />
         ))}

@@ -15,12 +15,23 @@ CATEGORY_MAP = {
 
 
 async def fetch_markets() -> list[PredictionMarket]:
-    async with httpx.AsyncClient(timeout=15) as client:
-        resp = await client.get(f"{BASE_URL}/markets", params={"limit": 50, "status": "open"})
-        resp.raise_for_status()
-        data = resp.json()
+    markets_raw = []
+    cursor = None
 
-    markets_raw = data.get("markets", [])
+    async with httpx.AsyncClient(timeout=30) as client:
+        while True:
+            params = {"limit": 1000, "status": "open"}
+            if cursor:
+                params["cursor"] = cursor
+            resp = await client.get(f"{BASE_URL}/markets", params=params)
+            resp.raise_for_status()
+            data = resp.json()
+            page = data.get("markets", [])
+            markets_raw.extend(page)
+            cursor = data.get("cursor")
+            if not cursor or not page:
+                break
+
     result: list[PredictionMarket] = []
 
     for m in markets_raw:

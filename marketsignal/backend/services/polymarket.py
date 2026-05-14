@@ -5,6 +5,7 @@ from services.mapper import map_market_to_tickers, categorise_market
 
 BASE_URL = "https://clob.polymarket.com"
 _END_CURSOR = "LTE="  # base64 "-1" — Polymarket's signal for no more pages
+MAX_MARKETS = 500
 
 
 async def fetch_markets() -> list[PredictionMarket]:
@@ -12,7 +13,7 @@ async def fetch_markets() -> list[PredictionMarket]:
     cursor = None
 
     async with httpx.AsyncClient(timeout=30) as client:
-        while True:
+        while len(markets_raw) < MAX_MARKETS:
             params = {"closed": "false", "limit": 100}
             if cursor:
                 params["next_cursor"] = cursor
@@ -25,6 +26,8 @@ async def fetch_markets() -> list[PredictionMarket]:
             if not next_cursor or next_cursor == _END_CURSOR or not page:
                 break
             cursor = next_cursor
+
+    markets_raw = markets_raw[:MAX_MARKETS]
 
     result: list[PredictionMarket] = []
 

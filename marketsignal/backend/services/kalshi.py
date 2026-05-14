@@ -14,12 +14,15 @@ CATEGORY_MAP = {
 }
 
 
+MAX_MARKETS = 500
+
+
 async def fetch_markets() -> list[PredictionMarket]:
     markets_raw = []
     cursor = None
 
     async with httpx.AsyncClient(timeout=30) as client:
-        while True:
+        while len(markets_raw) < MAX_MARKETS:
             params = {"limit": 1000, "status": "open"}
             if cursor:
                 params["cursor"] = cursor
@@ -31,6 +34,8 @@ async def fetch_markets() -> list[PredictionMarket]:
             cursor = data.get("cursor")
             if not cursor or not page:
                 break
+
+    markets_raw = markets_raw[:MAX_MARKETS]
 
     result: list[PredictionMarket] = []
 

@@ -55,7 +55,12 @@ function sortMarkets(markets, sort) {
 
 function applyFilters(markets, filters) {
   const now = new Date()
-  let out = markets.filter(m => !m.market.close_date || new Date(m.market.close_date) > now)
+  let out = markets.filter(m => {
+    if (!m.market.close_date) return true
+    const d = new Date(m.market.close_date)
+    if (isNaN(d.getTime())) return true
+    return d > now
+  })
   if (filters.source) out = out.filter(m => m.market.source === filters.source)
   if (filters.category) out = out.filter(m => m.market.category === filters.category)
   if (filters.minProbability != null) out = out.filter(m => m.market.probability >= filters.minProbability)

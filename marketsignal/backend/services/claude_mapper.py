@@ -3,6 +3,7 @@ import json
 import os
 import re
 
+_CACHE_FILE = "/tmp/claude_cache.json"
 _cache: dict[str, dict] = {}
 
 VALID_CATEGORIES = {"macro", "equities", "crypto", "politics", "commodities", "rates", "other"}
@@ -28,6 +29,27 @@ Format: [{"id": "...", "category": "...", "tickers": ["..."], "rationale": {"TIC
 
 BATCH_SIZE = 20
 MAX_CONCURRENT = 5
+
+
+def _load_cache() -> None:
+    global _cache
+    try:
+        if os.path.exists(_CACHE_FILE):
+            with open(_CACHE_FILE) as f:
+                _cache = json.load(f)
+    except Exception:
+        _cache = {}
+
+
+def _save_cache() -> None:
+    try:
+        with open(_CACHE_FILE, "w") as f:
+            json.dump(_cache, f)
+    except Exception:
+        pass
+
+
+_load_cache()
 
 
 async def _classify_batch(client, batch: list) -> None:
@@ -66,12 +88,13 @@ async def _classify_batch(client, batch: list) -> None:
                 for t in tickers:
                     ticker_rationales[t] = raw_rationale
             _cache[market_id] = {"category": cat, "tickers": tickers, "ticker_rationales": ticker_rationales}
+        _save_cache()
     except Exception:
         pass
 
 
 async def classify_markets(markets: list) -> dict[str, dict]:
-    """Classify markets using Claude (concurrent batches). Returns {market_id: {category, tickers, ticker_rationales}}."""
+    """Classify markets using Claude. Only processes markets keyword-matching couldn't categorise."""
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
         return {}
@@ -80,12 +103,14 @@ async def classify_markets(markets: list) -> dict[str, dict]:
     except ImportError:
         return {}
 
-    uncached = [m for m in markets if m.id not in _cache]
-    if not uncached:
+    # Only send markets that keyword-matching left as "other" — already-classified markets
+    # don't need Claude and would waste tokens.
+    needs_claude = [m for m in markets if m.category == "other" and m.id not in _cache]
+    if not needs_claude:
         return {m.id: _cache[m.id] for m in markets if m.id in _cache}
 
     client = anthropic.AsyncAnthropic(api_key=api_key)
-    batches = [uncached[i: i + BATCH_SIZE] for i in range(0, len(uncached), BATCH_SIZE)]
+    batches = [needs_claude[i: i + BATCH_SIZE] for i in range(0, len(needs_claude), BATCH_SIZE)]
 
     semaphore = asyncio.Semaphore(MAX_CONCURRENT)
 

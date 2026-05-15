@@ -20,7 +20,7 @@ export function useMarkets({ source, category } = {}) {
       setError(null)
       try {
         const [data, healthData] = await Promise.all([
-          fetchMarkets({ source, category, limit: 500 }),
+          fetchMarkets({ source, category, limit: 5000 }),
           fetchHealth().catch(() => null),
         ])
         if (cancelled) return

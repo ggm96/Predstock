@@ -1,7 +1,6 @@
 import React, { useState } from 'react'
-import { ExternalLink, ChevronDown, ChevronUp, Clock } from 'lucide-react'
+import { ExternalLink, ChevronDown, ChevronUp, Clock, Building2 } from 'lucide-react'
 import ProbabilityBar from './ProbabilityBar'
-import PriceSparkline from './PriceSparkline'
 
 const SOURCE_COLORS = {
   kalshi: '#6e40c9',
@@ -42,9 +41,8 @@ function closeInfo(dateStr) {
   return { label: `closes in ${days}d`, color: '#57ab5a' }
 }
 
-export default function MarketCard({ market, instruments, index }) {
+export default function MarketCard({ market, index }) {
   const [expanded, setExpanded] = useState(false)
-  const [selectedTicker, setSelectedTicker] = useState(null)
   const sourceColor = SOURCE_COLORS[market.source] || '#8b949e'
   const categoryColor = CATEGORY_COLORS[market.category] || '#8b949e'
   const close = closeInfo(market.close_date)
@@ -76,6 +74,15 @@ export default function MarketCard({ market, instruments, index }) {
           >
             {market.category}
           </span>
+          {market.company && (
+            <span
+              className="flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full font-sans"
+              style={{ backgroundColor: '#58a6ff18', color: '#58a6ff', border: '1px solid #58a6ff33' }}
+            >
+              <Building2 size={10} />
+              {market.company}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-1 text-text-muted shrink-0">
           {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
@@ -100,32 +107,6 @@ export default function MarketCard({ market, instruments, index }) {
           </span>
         )}
       </div>
-
-      {/* Ticker chips + per-ticker rationale */}
-      {instruments.length > 0 && (
-        <div className="mt-3" onClick={e => e.stopPropagation()}>
-          <div className="flex flex-wrap gap-1.5">
-            {instruments.map(inst => (
-              <PriceSparkline
-                key={inst.ticker}
-                instrument={inst}
-                active={selectedTicker === inst.ticker}
-                onClick={() => setSelectedTicker(t => t === inst.ticker ? null : inst.ticker)}
-              />
-            ))}
-          </div>
-          {selectedTicker && market.ticker_rationales?.[selectedTicker] && (
-            <div className="mt-2 px-2 py-1.5 rounded bg-surface border border-border">
-              <span className="font-mono text-xs font-semibold" style={{ color: '#58a6ff' }}>
-                {selectedTicker}
-              </span>
-              <p className="text-text-muted text-xs mt-0.5 leading-relaxed font-sans">
-                {market.ticker_rationales[selectedTicker]}
-              </p>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Expanded section */}
       {expanded && (

@@ -189,7 +189,6 @@ export default function App() {
                     <MarketCard
                       key={mwi.market.id}
                       market={mwi.market}
-                      instruments={mwi.instruments}
                       index={i}
                     />
                   ))}

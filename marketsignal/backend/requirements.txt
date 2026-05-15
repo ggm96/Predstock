@@ -1,8 +1,7 @@
 fastapi
 uvicorn[standard]
 httpx
-yfinance
 pydantic
 python-dotenv
-anthropic
+anthropics
 aiofiles

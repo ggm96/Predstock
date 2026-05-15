@@ -1,10 +1,10 @@
 import json
 import httpx
 from models import PredictionMarket
-from services.mapper import map_market_to_tickers, categorise_market
+from services.mapper import categorise_market
 
 BASE_URL = "https://clob.polymarket.com"
-_END_CURSOR = "LTE="  # base64 "-1" — Polymarket's signal for no more pages
+_END_CURSOR = "LTE="
 MAX_MARKETS = 2000
 
 
@@ -69,7 +69,6 @@ async def fetch_markets() -> list[PredictionMarket]:
                         tags.append(t.get("label", t.get("slug", "")))
 
             market_id = str(m.get("condition_id", m.get("id", question[:40])))
-            tickers = map_market_to_tickers(question, question, tags)
             category = categorise_market(question, tags, question)
 
             result.append(PredictionMarket(
@@ -82,7 +81,6 @@ async def fetch_markets() -> list[PredictionMarket]:
                 close_date=end_date,
                 url=f"https://polymarket.com/market/{market_id}",
                 category=category,
-                related_tickers=tickers,
                 tags=tags,
             ))
         except Exception:

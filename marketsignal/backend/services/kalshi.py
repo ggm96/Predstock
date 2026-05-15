@@ -1,6 +1,6 @@
 import httpx
 from models import PredictionMarket
-from services.mapper import map_market_to_tickers, categorise_market
+from services.mapper import categorise_market
 
 BASE_URL = "https://api.elections.kalshi.com/trade-api/v2"
 
@@ -12,7 +12,6 @@ CATEGORY_MAP = {
     "COMMODITIES": "commodities",
     "RATES": "rates",
 }
-
 
 MAX_MARKETS = 2000
 
@@ -36,6 +35,7 @@ async def fetch_markets() -> list[PredictionMarket]:
                 break
 
     markets_raw = markets_raw[:MAX_MARKETS]
+
     result: list[PredictionMarket] = []
 
     for m in markets_raw:
@@ -58,12 +58,11 @@ async def fetch_markets() -> list[PredictionMarket]:
                 tags = [str(t) for t in m["tags"]]
 
             subtitle = m.get("subtitle", "") or ""
-            # Multi-outcome markets pack all options into subtitle — use title instead
             if subtitle.lower().startswith("yes ") or subtitle.count(",") >= 2:
                 question = title
             else:
                 question = subtitle or title
-            tickers = map_market_to_tickers(title, question, tags)
+
             if category == "other":
                 category = categorise_market(title, tags, question)
 
@@ -77,7 +76,6 @@ async def fetch_markets() -> list[PredictionMarket]:
                 close_date=close_time,
                 url=f"https://kalshi.com/markets/{ticker}",
                 category=category,
-                related_tickers=tickers,
                 tags=tags,
             ))
         except Exception:

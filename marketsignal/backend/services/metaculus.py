@@ -1,6 +1,6 @@
 import httpx
 from models import PredictionMarket
-from services.mapper import map_market_to_tickers, categorise_market
+from services.mapper import categorise_market
 
 BASE_URL = "https://www.metaculus.com/api2"
 
@@ -29,21 +29,17 @@ async def fetch_markets() -> list[PredictionMarket]:
             if not title:
                 continue
 
-            # community_prediction.full.q2 is the median
             community_pred = q.get("community_prediction") or {}
             full_pred = community_pred.get("full") or {}
             median = full_pred.get("q2")
-
             if median is None:
-                continue  # Skip questions with no prediction yet
+                continue
 
-            probability = float(median)
-            probability = max(0.0, min(1.0, probability))
-
+            probability = max(0.0, min(1.0, float(median)))
             num_predictions = q.get("number_of_predictions", 0)
             volume_usd = float(num_predictions) if num_predictions else None
-
             close_time = q.get("close_time")
+
             page_url = q.get("page_url", "")
             if page_url and not page_url.startswith("http"):
                 page_url = f"https://www.metaculus.com{page_url}"
@@ -60,7 +56,6 @@ async def fetch_markets() -> list[PredictionMarket]:
             description = q.get("description", title)
             question_text = description[:500] if description else title
             q_id = str(q.get("id", title[:40]))
-            tickers = map_market_to_tickers(title, question_text, tags)
             category = categorise_market(title, tags, question_text)
 
             result.append(PredictionMarket(
@@ -73,7 +68,6 @@ async def fetch_markets() -> list[PredictionMarket]:
                 close_date=close_time,
                 url=page_url or f"https://www.metaculus.com/questions/{q_id}/",
                 category=category,
-                related_tickers=tickers,
                 tags=tags,
             ))
         except Exception:

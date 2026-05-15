@@ -5,7 +5,7 @@ import MarketCard from './components/MarketCard'
 import CompanyPanel from './components/InstrumentPanel'
 import FilterBar from './components/FilterBar'
 
-const PAGE_SIZE = 100
+const PAGE_SIZE = 50
 
 const SOURCES = ['kalshi', 'polymarket', 'manifold', 'metaculus']
 const SOURCE_COLORS = {
@@ -29,19 +29,15 @@ function SkeletonCard() {
   )
 }
 
-function applyFilters(markets, filters) {
+function clientFilter(markets, search) {
   const now = new Date()
   let out = markets.filter(m => {
     if (!m.market.close_date) return true
     const d = new Date(m.market.close_date)
     return isNaN(d.getTime()) || d > now
   })
-  if (filters.source) out = out.filter(m => m.market.source === filters.source)
-  if (filters.category) out = out.filter(m => m.market.category === filters.category)
-  if (filters.minProbability != null) out = out.filter(m => m.market.probability >= filters.minProbability)
-  if (filters.maxProbability != null) out = out.filter(m => m.market.probability <= filters.maxProbability)
-  if (filters.search) {
-    const q = filters.search.toLowerCase()
+  if (search) {
+    const q = search.toLowerCase()
     out = out.filter(m =>
       m.market.title.toLowerCase().includes(q) ||
       m.market.question.toLowerCase().includes(q)
@@ -52,35 +48,34 @@ function applyFilters(markets, filters) {
 
 function sortMarkets(markets, sort) {
   const copy = [...markets]
-  if (sort === 'volume') {
-    return copy.sort((a, b) => (b.market.volume_usd ?? 0) - (a.market.volume_usd ?? 0))
-  }
-  if (sort === 'close_date') {
-    return copy.sort((a, b) => {
-      const da = a.market.close_date ? new Date(a.market.close_date) : new Date('9999')
-      const db = b.market.close_date ? new Date(b.market.close_date) : new Date('9999')
-      return da - db
-    })
-  }
-  return copy.sort((a, b) =>
-    Math.abs(b.market.probability - 0.5) - Math.abs(a.market.probability - 0.5)
-  )
+  if (sort === 'volume') return copy.sort((a, b) => (b.market.volume_usd ?? 0) - (a.market.volume_usd ?? 0))
+  if (sort === 'close_date') return copy.sort((a, b) => {
+    const da = a.market.close_date ? new Date(a.market.close_date) : new Date('9999')
+    const db = b.market.close_date ? new Date(b.market.close_date) : new Date('9999')
+    return da - db
+  })
+  return copy.sort((a, b) => Math.abs(b.market.probability - 0.5) - Math.abs(a.market.probability - 0.5))
 }
 
 export default function App() {
-  const [filters, setFilters] = useState({})
+  const [source, setSource] = useState(undefined)
+  const [category, setCategory] = useState(undefined)
+  const [search, setSearch] = useState('')
+  const [sort, setSort] = useState('probability')
   const [page, setPage] = useState(0)
-  const { markets, health, loading, error, countdown, lastRefresh, refresh } = useMarkets()
 
-  // Both state updates are batched by React 18 — single render, no desync
-  const handleFilterChange = (newFilters) => {
-    setFilters(newFilters)
-    setPage(0)
-  }
+  // source + category go to the API; search + sort are client-side
+  const { markets, health, loading, error, countdown, lastRefresh, refresh } =
+    useMarkets({ source, category })
+
+  const handleSourceChange = (val) => { setSource(val); setPage(0) }
+  const handleCategoryChange = (val) => { setCategory(val); setPage(0) }
+  const handleSearchChange = (val) => { setSearch(val); setPage(0) }
+  const handleSortChange = (val) => { setSort(val); setPage(0) }
 
   const sortedMarkets = useMemo(
-    () => sortMarkets(applyFilters(markets, filters), filters.sort),
-    [markets, filters]
+    () => sortMarkets(clientFilter(markets, search), sort),
+    [markets, search, sort]
   )
 
   const visibleMarkets = sortedMarkets.slice(0, (page + 1) * PAGE_SIZE)
@@ -92,7 +87,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-bg font-sans">
-      {/* ── Header ── */}
       <header className="bg-surface border-b border-border sticky top-0 z-20">
         <div className="max-w-screen-xl mx-auto px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">
@@ -100,9 +94,7 @@ export default function App() {
             <span className="font-mono text-base font-semibold text-text-primary">MarketSignal</span>
             <span className="text-text-muted text-xs hidden sm:block">Prediction Markets × Finance</span>
           </div>
-
           <div className="flex items-center gap-4 flex-wrap">
-            {/* Source status dots */}
             <div className="flex items-center gap-2">
               {SOURCES.map(s => {
                 const st = sourceStatuses[s]
@@ -120,22 +112,22 @@ export default function App() {
             </span>
             <div className="flex items-center gap-1.5">
               <span className="font-mono text-xs text-text-muted">{countdown}s</span>
-              <button
-                onClick={refresh}
-                disabled={loading}
-                className="p-1 rounded hover:bg-card transition-colors text-text-muted hover:text-text-primary"
-                title="Refresh"
-              >
+              <button onClick={refresh} disabled={loading}
+                className="p-1 rounded hover:bg-card transition-colors text-text-muted hover:text-text-primary">
                 <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
               </button>
             </div>
           </div>
         </div>
 
-        <FilterBar filters={filters} onChange={handleFilterChange} health={health} />
+        <FilterBar
+          source={source} category={category} search={search} sort={sort}
+          onSource={handleSourceChange} onCategory={handleCategoryChange}
+          onSearch={handleSearchChange} onSort={handleSortChange}
+          health={health}
+        />
       </header>
 
-      {/* ── Body ── */}
       <main className="max-w-screen-xl mx-auto px-4 py-4">
         {error ? (
           <div className="text-accent-red text-sm p-4 bg-card border border-border rounded-lg">
@@ -143,9 +135,8 @@ export default function App() {
           </div>
         ) : (
           <div className="flex gap-4 items-start">
-            {/* Market list */}
             <div className="flex-1 min-w-0">
-              {loading && markets.length === 0 ? (
+              {loading ? (
                 <div className="space-y-3">
                   {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
                 </div>
@@ -154,7 +145,7 @@ export default function App() {
                   <Activity size={36} className="mb-3 opacity-30" />
                   <p className="text-sm">No markets match these filters.</p>
                   <button
-                    onClick={() => handleFilterChange({})}
+                    onClick={() => { setSource(undefined); setCategory(undefined); setSearch(''); setPage(0) }}
                     className="mt-2 text-xs underline hover:text-text-primary transition-colors"
                   >
                     Clear filters
@@ -177,14 +168,12 @@ export default function App() {
               )}
             </div>
 
-            {/* Company panel — desktop */}
             <div className="w-72 xl:w-80 shrink-0 hidden lg:block">
               <CompanyPanel markets={visibleMarkets} />
             </div>
           </div>
         )}
 
-        {/* Company panel — mobile */}
         {!loading && visibleMarkets.length > 0 && (
           <div className="lg:hidden mt-4">
             <CompanyPanel markets={visibleMarkets} />
